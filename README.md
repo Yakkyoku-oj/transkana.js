@@ -3,7 +3,7 @@
 英文をカタカナに変換するJavaScriptコードです。
 
 ## デモサイト
-- 
+- [https://yakkyoku-oj.github.io/transkana.js/index.html](https://yakkyoku-oj.github.io/transkana.js/index.html)
 
 ## JSファイルの主な処理内容
 

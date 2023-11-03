@@ -16,6 +16,7 @@
   `sql.js`のライセンスURL : [https://github.com/sql-js/sql.js/blob/master/LICENSE](https://github.com/sql-js/sql.js/blob/master/LICENSE)
 - 当アプリに使用しているデータベースをこのまま使用する場合は、Carnegie Mellon Universityのライセンスに準じる必要があります。
 ### cmudict0.7bのライセンス
+Copyright (C) 1993-2015 Carnegie Mellon University. All rights reserved.
 - ソースコードの再配布の際は、上記の著作権通知と免責事項を保持する必要があります。
 - バイナリ形式での再配布の場合も、同様の通知と免責事項を文書や配布物に記載する必要があります。
 - このソフトウェアは「AS IS」（現状のまま）で提供され、明示的または暗黙的な保証はありません。

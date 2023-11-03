@@ -29,6 +29,40 @@
 - `./js/form.js`                 - デモアプリを起動するためのUIが定義されているJavaScriptソースファイル
 - `./dict/kanayomi.db`           - 英単語およそ16万語の読み（カタカナのみ）が登録されているSQLiteデータベース
 
+## データベース
+使用しているkanayomi.dbのテーブル構造は以下の通りです。
+```sql
+CREATE TABLE "T_WORDS" (
+	"id"	INTEGER NOT NULL UNIQUE,
+	"surface_form"	TEXT NOT NULL UNIQUE,
+	"cmu_reading"	TEXT,
+	"cmu_reading_kana"	TEXT,
+	"bep_reading"	TEXT,
+	"gpt_reading"	TEXT,
+	PRIMARY KEY("id" AUTOINCREMENT)
+)
+```
+ - `surfamce_form` : 英単語のスペル
+ - `cmu_reading` : 次のデータを元に登録した発音記号テキスト
+ [https://svn.code.sf.net/p/cmusphinx/code/trunk/cmudict/cmudict-0.7b](https://svn.code.sf.net/p/cmusphinx/code/trunk/cmudict/cmudict-0.7b)
+ - `cmu_reading_kana` : `cmu_reading`をカタカナに変換したテキスト（132747単語）
+ - `bep_reading` : 次のデータを元に登録した英単語の読み（46404単語）
+ [http://www.argv.org/bep/Windows/index.html](http://www.argv.org/bep/Windows/index.html)
+ - `gpt_reading` : ChatGPTを利用して作成した英単語の読み（15921単語）
+ ### データベースの取得
+ transkana.js内で、以下のクエリを実行して辞書データを取得しています。`gpt_reading`を優先して取得するようになっています。
+```sql
+SELECT 
+  surface_form,
+CASE
+  WHEN COALESCE(gpt_reading, '') != '' THEN gpt_reading
+  WHEN COALESCE(bep_reading, '') != '' THEN bep_reading
+  ELSE cmu_reading_kana
+  END AS preferred_reading
+FROM 
+  T_WORDS;
+```
+
 # インストール手順
 
 HTMLファイル、CSS、JSファイルリポジトリの構成のまま、全て展開してください。

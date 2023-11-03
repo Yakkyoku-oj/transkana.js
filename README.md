@@ -14,8 +14,15 @@
 - 当アプリのライセンスはMITライセンスとなっております。
 - 当アプリ内で使用している`sql.js`はJ同様にMITライセンスとなっております。
   `sql.js`のライセンスURL : [https://github.com/sql-js/sql.js/blob/master/LICENSE](https://github.com/sql-js/sql.js/blob/master/LICENSE)
-
-## 外部リソース
+- 当アプリに使用しているデータベースをこのまま使用する場合は、Carnegie Mellon Universityのライセンスに準じる必要があります。
+### cmudict0.7bのライセンス
+- ソースコードの再配布の際は、上記の著作権通知と免責事項を保持する必要があります。
+- バイナリ形式での再配布の場合も、同様の通知と免責事項を文書や配布物に記載する必要があります。
+- このソフトウェアは「AS IS」（現状のまま）で提供され、明示的または暗黙的な保証はありません。
+- Carnegie Mellon Universityやその関連者は、このソフトウェアの使用による損害に対して責任を持ちません。
+- 詳細なライセンス条件については[https://github.com/Alexir/CMUdict/blob/master/LICENSE](https://github.com/Alexir/CMUdict/blob/master/LICENSE)をご参照ください。
+  
+## 外部リソース(sql.js)
 
 - 辞書データベースを取得するために必要な`sql.js`は次のリポジトリにて公開されているライブラリです。
   リポジトリURL : [https://github.com/sql-js/sql.js](https://github.com/sql-js/sql.js)

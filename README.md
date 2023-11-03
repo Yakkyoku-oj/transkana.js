@@ -37,7 +37,8 @@ HTMLファイル、CSS、JSファイルリポジトリの構成のまま、全�
 
 ファイルをサーバ環境に展開し、`index.html`をブラウザで表示してください。
 `transkana.js`とkanayomi.dbのみを使用して独自のアプリに組み込む場合は、以下のようなコードを使用してください。
-'''html
+### Example **HTML** file:
+```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -65,7 +66,7 @@ HTMLファイル、CSS、JSファイルリポジトリの構成のまま、全�
 
 </body>
 </html>
-'''
+```
 
 ## 依存関係
 

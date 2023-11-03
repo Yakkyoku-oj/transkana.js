@@ -6,10 +6,14 @@
  * Created Date: 2023-10-30
  * Modified Date: 2023-11-03
  *
-  * License: [The MIT License (MIT)]
+ * License: [The MIT License (MIT)]
  * Version: 1.0.0
  * 
  * Copyright (c) 2023, Yakkyoku_oj3.
+ *
+ * [cmudict-0.7b]
+ * Copyright (C) 1993-2015 Carnegie Mellon University. All rights reserved.
+ * https://svn.code.sf.net/p/cmusphinx/code/trunk/cmudict/cmudict-0.7b
  */
 
 class TransKana {

@@ -1,9 +1,25 @@
-# TransKana
+# TransKana.js
 
-英文をカタカナに変換するJavaScriptコードです。
+TransKana.jsは、英語のテキストをカタカナに変換するJavaScriptライブラリです。
 
-## デモサイト
-- [https://yakkyoku-oj.github.io/transkana.js/index.html](https://yakkyoku-oj.github.io/transkana.js/index.html)
+## 特徴
+
+- 英単語をカタカナに変換
+- ローマ字表記をカタカナに変換
+- アルファベットをカタカナに変換
+- ハイフンやキャメルケースで連結された複合語に対応
+- SQLiteデータベースを使用して、正確な変換を実現
+
+## デモ
+
+以下のURLでデモページを確認できます。
+
+[デモページ](https://yakkyoku-oj.github.io/transkana.js/)
+
+## インストール
+
+適当なフォルダでリポジトリをcloneするか、右上のCodeからDownload ZIPしたものを展開してください。
+
 
 ## JSファイルの主な処理内容
 

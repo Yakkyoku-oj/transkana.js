@@ -178,6 +178,7 @@
               // 更新履歴
               { parent: 'histories', element: 'li', text: '[2023/10/30] Added 149875 word resource.', states: { class: 'subject' } },
               { parent: 'histories', element: 'li', text: '[2023/11/03] Added 5070 word resource.', states: { class: 'subject' } },
+              { parent: 'histories', element: 'li', text: '[2024/04/02] Modification of source code and addition of corresponding English sentence patterns (symbols, sentences surrounded by " ", numbers)', states: { class: 'subject' } },
 
               // スペシャルサンクス
               { parent: 'thanks', element: 'li', text: '[sql.js] : ', states: { id: 'thanks_line_0', class: 'subject' } },

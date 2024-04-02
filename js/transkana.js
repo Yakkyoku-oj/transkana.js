@@ -102,12 +102,11 @@ class TransKana {
     // 入力テキストを小文字に変換
     const lowerWord = this.convertToLower(word);
 
-    // 単語が数字のみの場合
+    // 単語が数字トークン（電話番号、カンマ区切りの数字、数字の連続）の場合
     if (this._isNumber(lowerWord)) {
       const numberText = this.convertNumToText(lowerWord)
       return this.convertSplitWords(numberText);
-    }
-    else {
+    } else {
       const sanitizedWord = lowerWord.replace(/^[,\.]|[,\.]$/g, '');
 
       // マップに単語が含まれる場合、それを返す
@@ -130,7 +129,7 @@ class TransKana {
    */
   _isNumber(value) {
     const textProcessor = this.getTextProcessor();
-    return textProcessor.isPhoneNumber(value) || textProcessor.isNomalNumber(value);
+    return textProcessor.isPhoneNumber(value) || textProcessor.isNormalNumber(value);
 
     // 電話番号に対応した正規表現。プラス記号、括弧、ハイフン、スペース、および文末のピリオドを許容
     //const phoneRegexp = new RegExp(/^\+?(\d{1,3})?(\(\d{1,3}\))?(\d{1,3}(,\d{3})*(\.\d+)?)([ -]?\d{2,4})*(\.)?$|^\d{3}-\d{4}(\.)?$/);
@@ -311,22 +310,10 @@ class TransKana {
    * @returns {string} 数値を英文表記に変換した文字列。無効な入力の場合は "Invalid-number" を返します。
    */
   convertNumToText(input) {
-    // 電話番号の形式に一致するかチェックする正規表現
+
     const textProcessor = this.getTextProcessor();
-    //const phonePattern = /^\+?(\d{1,3})?[- ]?(\(\d{1,3}\))?[- ]?(\d{1,4}([- ]\d{2,4}){1,2})$/;
   
-    if (textProcessor.isPhoneNumber(input)) {
-      // 電話番号形式に一致する場合、各数字を英単語に変換して連結
-      return input.split('').map(char => {
-        if (/\d/.test(char)) {
-          return this._numberToWords(parseInt(char));
-        } else if (char === '-' || char === ' ') {
-          return 'dash';  // ハイフンは "dash" と読む
-        } else {
-          return char;  // その他の文字（例: 括弧やプラス記号）はそのまま保持
-        }
-      }).join(' ');
-    } else {
+    if (textProcessor.isNormalNumber(input)) {
       // 通常の数値変換処理...
       // 数値を浮動小数点数に変換
       let num = parseFloat(input.replace(/,/g, ''));
@@ -357,6 +344,18 @@ class TransKana {
       // 整数部分の数値を英文表記に変換
       const resultText = (prefix + this._numberToWords(num) + decimalPart).replace(/\-+/g, '-');
       return resultText;
+
+    } else {
+      // 電話番号形式に一致する場合、各数字を英単語に変換して連結
+      return input.split('').map(char => {
+        if (/\d/.test(char)) {
+          return this._numberToWords(parseInt(char));
+        } else if (char === '-' || char === ' ') {
+          return 'dash';  // ハイフンは "dash" と読む
+        } else {
+          return char;  // その他の文字（例: 括弧やプラス記号）はそのまま保持
+        }
+      }).join(' ');
     }
   }
   
@@ -621,7 +620,7 @@ class TransKana {
         return numberRegexp.test(text);
       }
 
-      isNomalNumber(text) {
+      isNormalNumber(text) {
         const numberRegexp = new RegExp(this.normalNumberPattern);
         return numberRegexp.test(text);
       }

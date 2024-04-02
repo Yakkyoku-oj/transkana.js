@@ -129,10 +129,20 @@ class TransKana {
    * @returns {boolean} 文字列が数値形式の場合は true、そうでない場合は false。
    */
   _isNumber(value) {
-    // 負の数値、カンマ区切りの数字、小数点を含む数値、および文末のピリオドに対応した正規表現
-    const regexp = new RegExp(/^(-)?(\d{1,3}(,\d{3})*(\.\d+)?)(\.)?$/);
-    return regexp.test(value);
+    const textProcessor = this.getTextProcessor();
+    return textProcessor.isPhoneNumber(value) || textProcessor.isNomalNumber(value);
+
+    // 電話番号に対応した正規表現。プラス記号、括弧、ハイフン、スペース、および文末のピリオドを許容
+    //const phoneRegexp = new RegExp(/^\+?(\d{1,3})?(\(\d{1,3}\))?(\d{1,3}(,\d{3})*(\.\d+)?)([ -]?\d{2,4})*(\.)?$|^\d{3}-\d{4}(\.)?$/);
+  
+    // 元の数値チェックと電話番号の形式チェックの両方を行う
+    //const numberRegexp = new RegExp(/^(-)?(\d{1,3}(,\d{3})*(\.\d+)?)(\.)?$/);
+  
+    //return numberRegexp.test(value) || phoneRegexp.test(value);
   }
+  
+  
+  
 
   /**
    * convertSplitWords - ハイフンやキャメルケースで連結された単語を含む文字列をカタカナ表記に変換するメソッド
@@ -146,7 +156,7 @@ class TransKana {
   convertSplitWords(word) {
     // ハイフンを取り除き、後続の文字を大文字に変換してキャメルケースに統一
     const sanitizedWord = word.replace(/^[,\.]|[,\.]$/g, '');
-    const halfWidthWord = this.convertToHalfWidth(sanitizedWord)
+    const halfWidthWord = this.convertToHalfWidth(sanitizedWord);
     const unifiedCamelCase = halfWidthWord.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
 
     // キャメルケースでの分解
@@ -156,7 +166,8 @@ class TransKana {
       return this.map.has(lowerW) ? this.map.get(lowerW) : this.convertReadableFormat(lowerW);
     });
 
-    return kanaArray.join('・');
+    // 空要素を削除し、中黒で連結して返却
+    return kanaArray.filter(Boolean).join('・');
   }
 
   /**
@@ -300,37 +311,55 @@ class TransKana {
    * @returns {string} 数値を英文表記に変換した文字列。無効な入力の場合は "Invalid-number" を返します。
    */
   convertNumToText(input) {
-    // 数値を浮動小数点数に変換
-    let num = parseFloat(input.replace(/,/g, ''));
-
-    // 数値が無効な場合はエラーメッセージを返す
-    if (isNaN(num)) return 'Invalid-number';
-
-    // 負の数値の処理
-    let prefix = '';
-    if (num < 0) {
-      prefix = 'negative-';
-      num = -num; // 数値を正の数に変換
+    // 電話番号の形式に一致するかチェックする正規表現
+    const textProcessor = this.getTextProcessor();
+    //const phonePattern = /^\+?(\d{1,3})?[- ]?(\(\d{1,3}\))?[- ]?(\d{1,4}([- ]\d{2,4}){1,2})$/;
+  
+    if (textProcessor.isPhoneNumber(input)) {
+      // 電話番号形式に一致する場合、各数字を英単語に変換して連結
+      return input.split('').map(char => {
+        if (/\d/.test(char)) {
+          return this._numberToWords(parseInt(char));
+        } else if (char === '-' || char === ' ') {
+          return 'dash';  // ハイフンは "dash" と読む
+        } else {
+          return char;  // その他の文字（例: 括弧やプラス記号）はそのまま保持
+        }
+      }).join(' ');
+    } else {
+      // 通常の数値変換処理...
+      // 数値を浮動小数点数に変換
+      let num = parseFloat(input.replace(/,/g, ''));
+  
+      // 数値が無効な場合はエラーメッセージを返す
+      if (isNaN(num)) return 'Invalid-number';
+  
+      // 負の数値の処理
+      let prefix = '';
+      if (num < 0) {
+        prefix = 'negative-';
+        num = -num; // 数値を正の数に変換
+      }
+  
+      // 小数点以下の処理
+      let decimalPart = '';
+      if (num % 1 !== 0) {
+        const decimals = num.toString().split('.')[1].slice(0, 2); // 小数点以下2桁を取得
+        decimalPart = '-point-' + [...decimals].map(d => this._numberToWords(parseInt(d, 10))).join('-');
+        num = Math.floor(num); // 小数点以下を切り捨て
+      }
+  
+      // 範囲外の数値の処理
+      if (num > Number.MAX_SAFE_INTEGER) {
+        return prefix + `over-${this._numberToWords(Number.MAX_SAFE_INTEGER)}-(${Number.MAX_SAFE_INTEGER.toLocaleString()})` + decimalPart;
+      }
+  
+      // 整数部分の数値を英文表記に変換
+      const resultText = (prefix + this._numberToWords(num) + decimalPart).replace(/\-+/g, '-');
+      return resultText;
     }
-
-    // 小数点以下の処理
-    let decimalPart = '';
-    if (num % 1 !== 0) {
-      const decimals = num.toString().split('.')[1].slice(0, 2); // 小数点以下2桁を取得
-      decimalPart = '-point-' + [...decimals].map(d => this._numberToWords(parseInt(d, 10))).join('-');
-      num = Math.floor(num); // 小数点以下を切り捨て
-    }
-
-    // 範囲外の数値の処理
-    if (num > Number.MAX_SAFE_INTEGER) {
-      return prefix + `over-${this._numberToWords(Number.MAX_SAFE_INTEGER)}-(${Number.MAX_SAFE_INTEGER.toLocaleString()})` + decimalPart;
-    }
-
-    // 整数部分の数値を英文表記に変換
-    const resultText = (prefix + this._numberToWords(num) + decimalPart).replace(/\-+/g, '-');
-    return resultText;
-
   }
+  
 
   /**
    * 指定された数値を英単語に変換します。0から19までは個別の単語を使用し、20以上は適切な英単語に分割して表現します。
@@ -568,6 +597,8 @@ class TransKana {
         this.tokenPattern = /[0-9a-zA-Z\-'"`,\.\\=\+\*\/%\^&@#$~\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A－’‘，．￥　～]+/g;
         this.quotedTextPattern = /"([^"]*)"/g;  // ダブルクォーテーションで囲まれたテキストを検出
         this.symbolPattern = /([=\+\*\/%\^&@#$~])/g;
+        this.phoneNumberPattern = /^\+?(\d{1,3})?(\(\d{1,3}\))?(\d{1,3}(,\d{3})*(\.\d+)?)([ -]?\d{2,4})*(\.)?$|^\d{3}-\d{4}(\.)?$/;
+        this.normalNumberPattern = new RegExp(/^(-)?(\d{1,3}(,\d{3})*(\.\d+)?)(\.)?$/);
       }
   
       // ダブルクォーテーションで囲まれたテキストと記号、数字が単語に囲まれている場合の前後にスペースを挿入
@@ -583,6 +614,16 @@ class TransKana {
       // テキストからトークンを抽出するメソッド
       extractTokens(text) {
         return text.match(this.tokenPattern) || [];
+      }
+
+      isPhoneNumber(text) {
+        const numberRegexp = new RegExp(this.phoneNumberPattern);
+        return numberRegexp.test(text);
+      }
+
+      isNomalNumber(text) {
+        const numberRegexp = new RegExp(this.normalNumberPattern);
+        return numberRegexp.test(text);
       }
     }
   

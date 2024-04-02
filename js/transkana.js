@@ -98,25 +98,27 @@ class TransKana {
     // a のみ例外処理
     if (word === 'a') return 'ア';
     if (word === 'A') return 'エー';
-
+  
     // 入力テキストを小文字に変換
     const lowerWord = this.convertToLower(word);
-
+  
     // 単語が数字トークン（電話番号、カンマ区切りの数字、数字の連続）の場合
     if (this._isNumber(lowerWord)) {
-      const numberText = this.convertNumToText(lowerWord)
+      const numberText = this.convertNumToText(lowerWord);
       return this.convertSplitWords(numberText);
-    } else {
-      const sanitizedWord = lowerWord.replace(/^[,\.]|[,\.]$/g, '');
-
-      // マップに単語が含まれる場合、それを返す
-      if (this.map.has(sanitizedWord)) {
-        return this.map.get(sanitizedWord);
-      }
-
-      // 単語を分解して変換
-      return this.convertSplitWords(word);
     }
+  
+    // 単語の前後からカンマとピリオドを取り除く
+    const sanitizedWord = lowerWord.replace(/^[,\.]+|[,\.]+$/g, '');
+  
+    // マップに単語が含まれる場合、それを返す
+    if (this.map.has(sanitizedWord)) {
+      const mapResultText = this.map.get(sanitizedWord);
+      return lowerWord.match(/\.$/) ? mapResultText + "。" : mapResultText;
+    }
+  
+    // 単語を分解して変換
+    return this.convertSplitWords(word);
   }
 
   /**
@@ -130,18 +132,7 @@ class TransKana {
   _isNumber(value) {
     const textProcessor = this.getTextProcessor();
     return textProcessor.isPhoneNumber(value) || textProcessor.isNormalNumber(value);
-
-    // 電話番号に対応した正規表現。プラス記号、括弧、ハイフン、スペース、および文末のピリオドを許容
-    //const phoneRegexp = new RegExp(/^\+?(\d{1,3})?(\(\d{1,3}\))?(\d{1,3}(,\d{3})*(\.\d+)?)([ -]?\d{2,4})*(\.)?$|^\d{3}-\d{4}(\.)?$/);
-  
-    // 元の数値チェックと電話番号の形式チェックの両方を行う
-    //const numberRegexp = new RegExp(/^(-)?(\d{1,3}(,\d{3})*(\.\d+)?)(\.)?$/);
-  
-    //return numberRegexp.test(value) || phoneRegexp.test(value);
   }
-  
-  
-  
 
   /**
    * convertSplitWords - ハイフンやキャメルケースで連結された単語を含む文字列をカタカナ表記に変換するメソッド
@@ -594,10 +585,10 @@ class TransKana {
       constructor() {
         this.numberAndLetterPattern = /(\d|[\uFF10-\uFF19])([a-zA-Z\uFF21-\uFF3A\uFF41-\uFF5A])|([a-zA-Z\uFF21-\uFF3A\uFF41-\uFF5A])(\d|[\uFF10-\uFF19])/g;
         this.tokenPattern = /[0-9a-zA-Z\-'"`,\.\\=\+\*\/%\^&@#$~\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A－’‘，．￥　～]+/g;
-        this.quotedTextPattern = /"([^"]*)"/g;  // ダブルクォーテーションで囲まれたテキストを検出
+        this.quotedTextPattern = /"([^"]*)"/g;
         this.symbolPattern = /([=\+\*\/%\^&@#$~])/g;
         this.phoneNumberPattern = /^\+?(\d{1,3})?(\(\d{1,3}\))?(\d{1,3}(,\d{3})*(\.\d+)?)([ -]?\d{2,4})*(\.)?$|^\d{3}-\d{4}(\.)?$/;
-        this.normalNumberPattern = new RegExp(/^(-)?(\d{1,3}(,\d{3})*(\.\d+)?)(\.)?$/);
+        this.normalNumberPattern = /^(-)?(\d{1,3}(,\d{3})*(\.\d+)?)(\.)?$/;
       }
   
       // ダブルクォーテーションで囲まれたテキストと記号、数字が単語に囲まれている場合の前後にスペースを挿入

@@ -100,17 +100,20 @@ class TransKana {
     if (word === 'A') return 'エー';
 
     // 入力テキストを小文字に変換
-    let lowerWord = this.convertToLower(word);
+    const lowerWord = this.convertToLower(word);
+    console.log(lowerWord)
 
     // 単語が数字のみの場合
     if (this._isNumber(lowerWord)) {
-      lowerWord = this.convertNumToText(lowerWord)
-      return this.convertSplitWords(lowerWord);
+      const numberText = this.convertNumToText(lowerWord)
+      return this.convertSplitWords(numberText);
     }
     else {
+      const sanitizedWord = lowerWord.replace(/^[,\.]|[,\.]$/g, '');
+
       // マップに単語が含まれる場合、それを返す
-      if (this.map.has(lowerWord)) {
-        return this.map.get(lowerWord);
+      if (this.map.has(sanitizedWord)) {
+        return this.map.get(sanitizedWord);
       }
 
       // 単語を分解して変換
@@ -127,8 +130,8 @@ class TransKana {
    * @returns {boolean} 文字列が数値形式の場合は true、そうでない場合は false。
    */
   _isNumber(value) {
-    // 負の数値、カンマ区切りの数字、および小数点に対応した正規表現
-    const regexp = new RegExp(/^(-)?(\d{1,3}(,\d{3})*(\.\d+)?)$/);
+    // 負の数値、カンマ区切りの数字、小数点を含む数値、および文末のピリオドに対応した正規表現
+    const regexp = new RegExp(/^(-)?(\d{1,3}(,\d{3})*(\.\d+)?)(\.)?$/);
     return regexp.test(value);
   }
 
@@ -143,11 +146,12 @@ class TransKana {
    */
   convertSplitWords(word) {
     // ハイフンを取り除き、後続の文字を大文字に変換してキャメルケースに統一
-    const halfWidthWord = this.convertToHalfWidth(word)
+    const sanitizedWord = word.replace(/^[,\.]|[,\.]$/g, '');
+    const halfWidthWord = this.convertToHalfWidth(sanitizedWord)
     const unifiedCamelCase = halfWidthWord.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
 
     // キャメルケースでの分解
-    const camelWords = this.splitCamelCase(unifiedCamelCase);
+    const camelWords = this._splitCamelCase(unifiedCamelCase);
     const kanaArray = camelWords.map(w => {
       const lowerW = this.convertToLower(w);
       return this.map.has(lowerW) ? this.map.get(lowerW) : this.convertReadableFormat(lowerW);
@@ -157,7 +161,7 @@ class TransKana {
   }
 
   /**
-   * splitCamelCase - キャメルケースで書かれた文字列を単語ごとに分割するメソッド
+   * _splitCamelCase - キャメルケースで書かれた文字列を単語ごとに分割するメソッド
    * 
    * キャメルケースの文字列は、単語の区切りが大文字で表され、スペースを使用せずに複数の単語が連結された形式です。
    * このメソッドは、小文字または数字の後に大文字が来る場所を見つけ、その前にスペースを挿入して文字列を分割します。
@@ -166,7 +170,7 @@ class TransKana {
    * @param {string} str - キャメルケースで書かれた文字列。
    * @returns {string[]} キャメルケースの文字列を単語ごとに分割した配列。
    */
-  splitCamelCase(str) {
+  _splitCamelCase(str) {
     return str.replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(' ');
   }
 
@@ -179,19 +183,19 @@ class TransKana {
    * @example
    */
   convertReadableFormat(word) {
-    const romanConverted = this.convertRomanToKana(word);
-    return this.convertAlphabet(romanConverted);
+    const romanConverted = this._convertRomanToKana(word);
+    return this._convertAlphabet(romanConverted);
   }
 
   /**
-   * convertAlphabet - アルファベットの変換を行うメソッド
+   * _convertAlphabet - アルファベットの変換を行うメソッド
    * 
    * @function
    * @param {string} word - 変換対象の文字列
    * @returns {string} 対応するカタカナ
    * @example
    */
-  convertAlphabet(word) {
+  _convertAlphabet(word) {
     // 単一アルファベットからカタカナへのマッピング
     const alphabets = Array.from(word);
     const basicMapping = this.getBasicMap();
@@ -200,14 +204,14 @@ class TransKana {
   }
 
   /**
-   * convertRomanToKana - ローマ字表記の変換を行うメソッド
+   * _convertRomanToKana - ローマ字表記の変換を行うメソッド
    * 
    * @function
    * @param {string} word - 変換対象の文字列
    * @returns {string} 対応するカタカナ
    * @example
    */
-  convertRomanToKana(original) {
+  _convertRomanToKana(original) {
     const str = this.convertToLower(original); // 全角→半角→小文字
     const tree = this.getRomanTree();
     let result = '';

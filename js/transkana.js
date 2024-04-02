@@ -101,7 +101,6 @@ class TransKana {
 
     // 入力テキストを小文字に変換
     const lowerWord = this.convertToLower(word);
-    console.log(lowerWord)
 
     // 単語が数字のみの場合
     if (this._isNumber(lowerWord)) {

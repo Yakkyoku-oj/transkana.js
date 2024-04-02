@@ -586,28 +586,3 @@ class TransKana {
     return new TextProcessor();
   }
 }
-
-class TextProcessor {
-  constructor() {
-    this.numberAndLetterPattern = /(\d|[\uFF10-\uFF19])([a-zA-Z\uFF21-\uFF3A\uFF41-\uFF5A])|([a-zA-Z\uFF21-\uFF3A\uFF41-\uFF5A])(\d|[\uFF10-\uFF19])/g;
-    this.tokenPattern = /[0-9a-zA-Z\-'"`,\.\\=\+\*\/%\^&@#$~\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A－’‘，．￥　～]+/g;
-    this.quotedTextPattern = /"([^"]*)"/g; // ダブルクォーテーションで囲まれたテキストを検出
-    this.symbolPattern = /([=\+\*\/%\^&@#$~])/g;
-  }
-
-  // ダブルクォーテーションで囲まれたテキストと記号の前後、数字が単語に囲まれている場合の前後にスペースを挿入
-  insertSpaces(text) {
-    return text
-      .replace(this.quotedTextPattern, ' " $1 " ') // ダブルクォーテーションで囲まれたテキストの前後にスペースを挿入
-      .replace(this.symbolPattern, ' $1 ') // 記号の前後にスペースを挿入
-      .replace(this.numberAndLetterPattern, '$1$3 $2$4') // 数字と文字の間にスペースを挿入
-      .replace(/([a-zA-Z])(\d)/g, '$1 $2') // 文字の後に数字が来る場合にスペースを挿入
-      .replace(/(\d)([a-zA-Z])/g, '$1 $2'); // 数字の後に文字が来る場合にスペースを挿入
-  }
-
-  // テキストからトークンを抽出するメソッド
-  extractTokens(text) {
-    return text.match(this.tokenPattern) || [];
-  }
-}
-

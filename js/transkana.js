@@ -4,7 +4,7 @@
  * Author: [Yakkyoku_oj3]
  * Contact: https://twitter.com/greenhill_pharm
  * Created Date: 2023-10-30
- * Modified Date: 2024-04-02
+ * Modified Date: 2024-04-03
  *
  * License: [The MIT License (MIT)]
  * Version: 1.0.1
@@ -294,7 +294,9 @@ class TransKana {
   }
 
   /**
-   * 入力された数値を英文表記に変換します。数値はカンマ区切りも受け付け、小数部分は2桁まで考慮されます。
+   * convertNumToText - 入力された数字トークンを英文表記に変換するメソッド
+   * 
+   * 数字トークンはカンマ区切りも受け付け、小数部分は2桁まで考慮されます。
    * 数値が負の場合は "negative" が先頭に付き、範囲外（Number.MAX_SAFE_INTEGERを超える）の場合は "over" として表現されます。
    * 
    * @param {string} input - 変換する数値の文字列表現。
@@ -352,38 +354,46 @@ class TransKana {
   
 
   /**
-   * 指定された数値を英単語に変換します。0から19までは個別の単語を使用し、20以上は適切な英単語に分割して表現します。
-   * 1000以上の数値は "thousand"、"million" などの単位を用いて表現されます。単語の区切りはハイフンで行われます。
+   * _numberToWords - 指定された数値を英単語に変換するメソッド
+   * 
+   * 0から19までは個別の単語を使用し、20以上は適切な英単語に分割して表現します。
+   * 1000以上の数値は "thousand"、"million" などの単位を用いて表現されます。単語の区切りは空白で行われます。
    * 
    * @private
    * @param {number} num - 変換する数値。
-   * @returns {string} 数値を英単語に変換した文字列。末尾のハイフンは削除されます。
+   * @returns {string} 数値を英単語に変換した文字列。末尾の空白は削除されます。
    */
   _numberToWords(num) {
-    if (num === 0) return 'zero';
-
+    if (num === 0) return 'zero'; // 数値が0の場合は 'zero' を返す
+  
+    // 単位とスケールに対応する英語の単語のリスト
     const units = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen'];
-    const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+    const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'nineteen'];
     const scales = ['', 'thousand', 'million', 'billion', 'trillion', 'quadrillion', 'quintillion'];
-
+  
+    // 数値を英語の単語に変換するための再帰関数
     function convert(n, depth) {
-      if (n === 0) return '';
-      else if (n < 20) return units[n] + '-';
-      else if (n < 100) return tens[Math.floor(n / 10)] + '-' + convert(n % 10, depth + 1);
-      else if (n < 1000) return units[Math.floor(n / 100)] + '-hundred-' + convert(n % 100, depth + 1);
+      if (n === 0) return ''; // 再帰の基底条件: 0の場合は空文字を返す
+      else if (n < 20) return units[n] + ' '; // 20未満の場合は units 配列から対応する単語を取得
+      else if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? '-' + units[n % 10] : ''); // 100未満の場合は tens と units 配列を使用して単語を生成
+      else if (n < 1000) return units[Math.floor(n / 100)] + ' hundred ' + (n % 100 ? convert(n % 100, depth + 1) : '').trim(); // 1000未満の場合は hundreds を使用して単語を生成
       else {
-        for (let i = 0; i < scales.length; i++) {
-          const scaleDivider = Math.pow(1000, i + 1);
-          if (n < scaleDivider * 1000) {
-            return convert(Math.floor(n / scaleDivider), depth + 1) + scales[i] + '-' + convert(n % scaleDivider, depth + 1);
+        // 1000以上の場合は適切なスケールで数値を分割し、各部分を再帰的に変換
+        for (let i = scales.length - 1; i > 0; i--) {
+          const scaleDivider = Math.pow(1000, i); // 現在のスケールに対応する数値を計算
+          if (n >= scaleDivider) {
+            const scalePart = convert(Math.floor(n / scaleDivider), depth + 1).trim(); // スケール部分の数値を変換
+            const remainder = n % scaleDivider; // 残りの数値を計算
+            return scalePart + ' ' + scales[i] + (remainder ? ' ' + convert(remainder, depth + 1) : ''); // スケール部分と残りの部分を結合
           }
         }
       }
     }
-
-    const words = convert(num, 0);
-    return words.trim().replace(/-$/, ''); // 末尾のハイフンを削除
+  
+    const words = convert(num, 0).trim(); // 再帰関数を呼び出して、結果の文字列の前後の空白をトリム
+    return words.replace(/\s+/g, ' ').trim(); // 余分な空白を1つの空白に置換し、末尾の空白を削除
   }
+  
 
   /**
    * exec - テキストをカタカナに変換するメソッド
@@ -585,7 +595,8 @@ class TransKana {
       constructor() {
         this.numberAndLetterPattern = /(\d|[\uFF10-\uFF19])([a-zA-Z\uFF21-\uFF3A\uFF41-\uFF5A])|([a-zA-Z\uFF21-\uFF3A\uFF41-\uFF5A])(\d|[\uFF10-\uFF19])/g;
         this.tokenPattern = /[0-9a-zA-Z\-'"`,\.\\=\+\*\/%\^&@#$~\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A－’‘，．￥　～]+/g;
-        this.quotedTextPattern = /"([^"]*)"/g;
+        this.doubleQuotedTextPattern = /"([^"]*)"/g;
+        this.singleQuotedTextPattern = /'([^']*)'/g;
         this.symbolPattern = /([=\+\*\/%\^&@#$~])/g;
         this.phoneNumberPattern = /^\+?(\d{1,3})?(\(\d{1,3}\))?(\d{1,3}(,\d{3})*(\.\d+)?)([ -]?\d{2,4})*(\.)?$|^\d{3}-\d{4}(\.)?$/;
         this.normalNumberPattern = /^(-)?(\d{1,3}(,\d{3})*(\.\d+)?)(\.)?$/;
@@ -594,7 +605,8 @@ class TransKana {
       // ダブルクォーテーションで囲まれたテキストと記号、数字が単語に囲まれている場合の前後にスペースを挿入
       insertSpaces(text) {
         return text
-          .replace(this.quotedTextPattern, ' " $1 " ')  // ダブルクォーテーションで囲まれたテキストの前後にスペースを挿入
+          .replace(this.doubleQuotedTextPattern, ' " $1 " ')  // ダブルクォーテーションで囲まれたテキストの前後にスペースを挿入
+          .replace(this.singleQuotedTextPattern, ' \' $1 \' ')  // シングルクォーテーションで囲まれたテキストの前後にスペースを挿入
           .replace(this.symbolPattern, ' $1 ')  // 記号の前後にスペースを挿入
           .replace(this.numberAndLetterPattern, '$1$3 $2$4')  // 数字と文字の間にスペースを挿入
           .replace(/([a-zA-Z])(\d)/g, '$1 $2')  // 文字の後に数字が来る場合にスペースを挿入

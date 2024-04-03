@@ -69,10 +69,10 @@ CREATE TABLE "T_WORDS" (
  - `surfamce_form` : 英単語のスペル
  - `cmu_reading` : 次のデータを元に登録した発音記号テキスト
  [https://svn.code.sf.net/p/cmusphinx/code/trunk/cmudict/cmudict-0.7b](https://svn.code.sf.net/p/cmusphinx/code/trunk/cmudict/cmudict-0.7b)
- - `cmu_reading_kana` : `cmu_reading`をカタカナに変換したテキスト（132747単語）
- - `bep_reading` : 次のデータを元に登録した英単語の読み（46404単語）
+ - `cmu_reading_kana` : `cmu_reading`をカタカナに変換したテキスト（およそ130000単語）
+ - `bep_reading` : 次のデータを元に登録した英単語の読み（およそ46000単語）
  [http://www.argv.org/bep/Windows/index.html](http://www.argv.org/bep/Windows/index.html)
- - `gpt_reading` : ChatGPTを利用して作成した英単語の読み（15921単語）
+ - `gpt_reading` : ChatGPTを利用して作成した英単語の読み（およそ16000単語）
  ### データベースの取得
  transkana.js内で、以下のクエリを実行して辞書データを取得しています。`gpt_reading`を優先して取得するようになっています。
 ```sql
@@ -95,7 +95,7 @@ HTMLファイル、CSS、JSファイルリポジトリの構成のまま、全�
 
 ファイルをサーバ環境に展開し、`index.html`をブラウザで表示してください。
 `transkana.js`とkanayomi.dbのみを使用して独自のアプリに組み込む場合は、以下のようなコードを使用してください。
-### Example **HTML** file:
+### Example **HTML** file(1):
 ```html
 <!DOCTYPE html>
 <html lang="ja">
@@ -121,6 +121,63 @@ HTMLファイル、CSS、JSファイルリポジトリの構成のまま、全�
 
   <textarea id="text" rows="4" cols="50"></textarea>
   <button id="button" onclick="englishToKana(document.getElementById('text').value)">カタカナに変換する</button>
+
+</body>
+</html>
+```
+
+### Example **HTML** file(2):
+```html
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Language" content="ja">
+<title>EnglishToKana</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.min.js" integrity="sha512-VYs2RuvWreNg7oouVhZ/9bEvdPgyd5L2iCPCB8+8Qks/PHbmnc82TQOEctYoEKPveJGML8s+3NGcUEZYJrFIqg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="./js/transkana.js"></script>
+<script>
+
+const transKana = new TransKana();
+transKana.init().then(() => {
+  const checkReady = () => {
+    if (transKana.ready) {
+      runTestCases();
+    } else {
+      setTimeout(checkReady, 100);
+    }
+  };
+
+  const runTestCases = () => {
+    const testCases = [
+      "a A",
+      "hello world, this is a test.",
+      "This is a hyphen-separated sentence.",
+      "ThisIsCamelCaseText. ItShouldBeSeparatedAndTranslated.",
+      "It's a beautiful day, isn't it?",
+      "UPPERCASE, lowercase, and MixedCase words.",
+      "This sentence contains 123 numbers.",
+      "Ｆｕｌｌ－ｗｉｄｔｈ ｃｈａｒａｃｔｅｒｓ should be converted to half-width.",
+      "Hello, world! This is a test; it should work.",
+      "The quick brown fox jumps over the lazy dog. ThisIsAComplexSentence, with hyphen-separated words, numbers (123), and punctuation! It's a good test case, isn't it?"
+    ];
+
+    testCases.forEach(testCase => {
+      const result = transKana.exec(testCase);
+      console.log(`Input: ${testCase}`);
+      console.log(`Output: ${result}`);
+      console.log("---");
+    });
+  };
+
+  checkReady();
+});
+
+</script>
+</head>
+<body>
+
+<p>テストケースの実行。consoleを確認してください。</p>
 
 </body>
 </html>

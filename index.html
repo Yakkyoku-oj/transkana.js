@@ -13,6 +13,43 @@
   <script src="https://yakkyoku-oj.github.io/voice_trigger.js/js/oj3control.js"></script>
   <script src="./js/transkana.js"></script>
   <script src="./js/form.js"></script>
+  <script>
 
+    const transKana = new TransKana();
+    transKana.init().then(() => {
+      const checkReady = () => {
+        if (transKana.ready) {
+          runTestCases();
+        } else {
+          setTimeout(checkReady, 100);
+        }
+      };
+    
+      const runTestCases = () => {
+        const testCases = [
+          "a A",
+          "hello world, this is a test.",
+          "This is a hyphen-separated sentence.",
+          "ThisIsCamelCaseText. ItShouldBeSeparatedAndTranslated.",
+          "It's a beautiful day, isn't it?",
+          "UPPERCASE, lowercase, and MixedCase words.",
+          "This sentence contains 123 numbers.",
+          "Ｆｕｌｌ－ｗｉｄｔｈ ｃｈａｒａｃｔｅｒｓ should be converted to half-width.",
+          "Hello, world! This is a test; it should work.",
+          "The quick brown fox jumps over the lazy dog. ThisIsAComplexSentence, with hyphen-separated words, numbers (123), and punctuation! It's a good test case, isn't it?"
+        ];
+    
+        testCases.forEach(testCase => {
+          const result = transKana.exec(testCase);
+          console.log(`Input: ${testCase}`);
+          console.log(`Output: ${result}`);
+          console.log("---");
+        });
+      };
+    
+      checkReady();
+    });
+    
+    </script>
 </body>
 </html>

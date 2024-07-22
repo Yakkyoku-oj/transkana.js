@@ -98,7 +98,7 @@ class TransKana {
     // a のみ例外処理
     if (word === 'a') return 'ア';
     if (word === 'A') return 'エー';
-  
+
     // 入力テキストを小文字に変換
     const lowerWord = this.convertToLower(word);
   
@@ -406,21 +406,37 @@ class TransKana {
   exec(input_text) {
     const textProcessor = this.getTextProcessor();
 
-    // 数字と英字の間にスペースを挿入
-    const processedInput = textProcessor.insertSpaces(input_text);
-
     // トークンを抽出
-    const words = textProcessor.extractTokens(processedInput);
-    let kanaWords = [];
+    const tokens = textProcessor.extractTokens(input_text);
+    const wordTokens = tokens.filter(token => token.type === 'word');
 
-    for (const word of words) {
-      kanaWords.push(this.fetchKana(word));
+    // 各トークンを変換
+    let kanaWords = wordTokens.map(token => this.fetchKana(token.value));
+    let result = '';
+    let wordIndex = 0;
+  
+    // トークンの種別ごとに判定し、テキストを再構築
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      if (token.type === 'word') {
+        result += kanaWords[wordIndex++] || token.value;
+      } else {
+        result += token.value;
+      }
+  
+      // トークンの間にスペースを追加
+      if (i < tokens.length - 1) {
+        result += ' ';
+      }
     }
-
-    // 置換用の関数で kanaWords から要素を取り出し、テキストを変換
-    return processedInput.replace(textProcessor.tokenPattern, () => kanaWords.shift());
+  
+    // 句読点の周りの余分なスペースを取り除く
+    result = result.replace(/\s+([,、.。!！?？])/g, '$1');
+    result = result.replace(/([,、.。!！?？])\s+/g, '$1 ');
+  
+    return result.trim();
   }
-
+  
   /**
    * getBasicmap - アルファベットと記号変換用のマッピングデータを返すメソッド
    * 
@@ -594,7 +610,11 @@ class TransKana {
     class TextProcessor {
       constructor() {
         this.numberAndLetterPattern = /(\d|[\uFF10-\uFF19])([a-zA-Z\uFF21-\uFF3A\uFF41-\uFF5A])|([a-zA-Z\uFF21-\uFF3A\uFF41-\uFF5A])(\d|[\uFF10-\uFF19])/g;
-        this.tokenPattern = /[0-9a-zA-Z\-'"`,\.\\=\+\*\/%\^&@#$~\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A－’‘，．￥　～]+/g;
+
+        // アポストロフィを含む単語も1つのトークンとして認識するパターン
+        this.tokenPattern = /[0-9a-zA-Z-'"`.\=+*/%^&@#$~\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A－''．￥　～]+(?:'[a-zA-Z]+)?/g;
+        this.punctuationPattern = /[,、]/g;
+
         this.doubleQuotedTextPattern = /"([^"]*)"/g;
         this.singleQuotedTextPattern = /'([^']*)'/g;
         this.symbolPattern = /([=\+\*\/%\^&@#$~])/g;
@@ -602,20 +622,61 @@ class TransKana {
         this.normalNumberPattern = /^(-)?(\d{1,3}(,\d{3})*(\.\d+)?)(\.)?$/;
       }
   
+      // アポストロフィとして使用されるシングルクォートは無視
+      processQuotes(text) {
+        // アポストロフィを含む単語はそのまま保持
+        const apostrophePattern = /\b\w+(?:'[a-zA-Z]+)?\b/g;
+        text = text.replace(apostrophePattern, match => match);
+
+        // それ以外のシングルクォートは前後にスペースを挿入
+        return text.replace(/'([^']+)'/g, " '$1' ");
+      }
+
       // ダブルクォーテーションで囲まれたテキストと記号、数字が単語に囲まれている場合の前後にスペースを挿入
       insertSpaces(text) {
+        let processed_text =this.processQuotes(text);
+
+        return processed_text
+          .replace(/([0-9])([a-zA-Z])/g, '$1 $2')
+          .replace(/([a-zA-Z])([0-9])/g, '$1 $2')
+          .replace(/([a-z])([A-Z])/g, '$1 $2')
+          .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
+          .replace(/([,、])([^\s])/g, '$1 $2') // 句読点の後にスペースを挿入
+          .replace(/([^\s])([,、])/g, '$1 $2') // 句読点の前にスペースを挿入
+          .replace(/\s+/g, ' ').trim();
+        }
+
+      // トークンの置換とスペースの挿入を同時に行う
+      insertSpacesAndReplace(text, replacements) {
+        let index = 0;
         return text
-          .replace(this.doubleQuotedTextPattern, ' " $1 " ')  // ダブルクォーテーションで囲まれたテキストの前後にスペースを挿入
-          .replace(this.singleQuotedTextPattern, ' \' $1 \' ')  // シングルクォーテーションで囲まれたテキストの前後にスペースを挿入
-          .replace(this.symbolPattern, ' $1 ')  // 記号の前後にスペースを挿入
-          .replace(this.numberAndLetterPattern, '$1$3 $2$4')  // 数字と文字の間にスペースを挿入
-          .replace(/([a-zA-Z])(\d)/g, '$1 $2')  // 文字の後に数字が来る場合にスペースを挿入
-          .replace(/(\d)([a-zA-Z])/g, '$1 $2');  // 数字の後に文字が来る場合にスペースを挿入
+          .replace(this.tokenPattern, (match) => {
+            const replacement = replacements[index++] || match;
+            return ` ${replacement} `;
+          })
+          .replace(this.symbolPattern, ' $1 ')
+          .replace(/\s+/g, ' ')
+          .trim();
       }
   
-      // テキストからトークンを抽出するメソッド
+      // テキストからトークンを抽出する
       extractTokens(text) {
-        return text.match(this.tokenPattern) || [];
+        const tokens = []; let match; let lastIndex = 0;
+
+        while ((match = this.tokenPattern.exec(text)) !== null) {
+          const betweenText = text.slice(lastIndex, match.index); const punctuations = betweenText.match(this.punctuationPattern); if (punctuations) { punctuations.forEach(p => tokens.push({ type: 'punctuation', value: p })); }
+        
+          tokens.push({ type: 'word', value: match[0] });
+          lastIndex = this.tokenPattern.lastIndex;
+        }
+        
+        const endText = text.slice(lastIndex);
+        const endPunctuations = endText.match(this.punctuationPattern);
+        if (endPunctuations) {
+          endPunctuations.forEach(p => tokens.push({ type: 'punctuation', value: p }));
+        }
+        
+        return tokens;
       }
 
       isPhoneNumber(text) {

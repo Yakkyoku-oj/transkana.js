@@ -4,12 +4,12 @@
  * Author: [Yakkyoku_oj3]
  * Contact: https://twitter.com/greenhill_pharm
  * Created Date: 2023-10-30
- * Modified Date: 2024-04-03
+ * Modified Date: 2025-04-17
  *
  * License: [The MIT License (MIT)]
- * Version: 1.0.1
+ * Version: 1.1.0
  * 
- * Copyright (c) 2023-2024, Yakkyoku_oj3.
+ * Copyright (c) 2023-2025, Yakkyoku_oj3.
  * 
  * [cmudict-0.7b]
  * Copyright (C) 1993-2015 Carnegie Mellon University. All rights reserved.
@@ -32,7 +32,7 @@ class TransKana {
       this.map = new Map();
 
       try {
-        const db = await this.initializeSqlJs();
+        const db = await this._initializeSqlJs();
         if (!db) {
           throw new Error('Failed to initialize SQL.js');
         }
@@ -71,7 +71,7 @@ class TransKana {
    * SQL.jsを初期化するメソッド
    * @returns {Promise<Database>} SQLiteデータベースオブジェクト
    */
-  async initializeSqlJs() {
+  async _initializeSqlJs() {
     try {
       const sqlPromise = initSqlJs({
         locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${file}`
@@ -83,6 +83,45 @@ class TransKana {
       console.error('Error initializing SQL.js:', error);
       throw error;
     }
+  }
+
+  /**
+   * _isNumber - 文字列が正しい数値形式であるかを判定するメソッド
+   * 
+   * 負の数値、カンマ区切りの数値、小数点を含む数値に対応しています。
+   * 
+   * @param {string} value - 判定する文字列。
+   * @returns {boolean} 文字列が数値形式の場合は true、そうでない場合は false。
+   */
+  _isNumber(value) {
+    const textProcessor = this.getTextTokenizer();
+    return textProcessor.isNumber(value) || textProcessor.isPhoneNumber(value);
+  }
+  
+  /**
+   * convertSplitWords - ハイフンやキャメルケースで連結された単語を含む文字列をカタカナ表記に変換するメソッド
+   * 
+   * まずハイフンを削除しキャメルケースに統一、次にキャメルケースの単語を分割し、
+   * それぞれをカタカナに変換して中黒で連結した文字列を返します。
+   * 
+   * @param {string} word - 変換対象の文字列。
+   * @returns {string} 変換後のカタカナ表記文字列。
+   */
+  _convertSplitWords(word) {
+    // ハイフンを取り除き、後続の文字を大文字に変換してキャメルケースに統一
+    const sanitizedWord = word.replace(/^[,\.]|[,\.]$/g, '');
+    const halfWidthWord = this._convertToHalfWidth(sanitizedWord);
+    const unifiedCamelCase = halfWidthWord.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
+
+    // キャメルケースでの分解
+    const camelWords = this._splitCamelCase(unifiedCamelCase);
+    const kanaArray = camelWords.map(w => {
+      const lowerW = this._convertToLower(w);
+      return this.map.has(lowerW) ? this.map.get(lowerW) : this._convertReadableFormat(lowerW);
+    });
+
+    // 空要素を削除し、中黒で連結して返却
+    return kanaArray.filter(Boolean).join('・');
   }
 
   /**
@@ -100,17 +139,17 @@ class TransKana {
     if (word === 'A') return 'エー';
 
     // 入力テキストを小文字に変換
-    const lowerWord = this.convertToLower(word);
+    const lowerWord = this._convertToLower(word);
   
     // 単語が数字トークン（電話番号、カンマ区切りの数字、数字の連続）の場合
     if (this._isNumber(lowerWord)) {
-      const numberText = this.convertNumToText(lowerWord);
-      return this.convertSplitWords(numberText);
+      const numberText = this._convertNumToText(lowerWord);
+      return this._convertSplitWords(numberText);
     }
   
     // 単語の前後からカンマとピリオドを取り除く
     const sanitizedWord = lowerWord.replace(/^[,\.]+|[,\.]+$/g, '');
-  
+    
     // マップに単語が含まれる場合、それを返す
     if (this.map.has(sanitizedWord)) {
       const mapResultText = this.map.get(sanitizedWord);
@@ -118,46 +157,7 @@ class TransKana {
     }
   
     // 単語を分解して変換
-    return this.convertSplitWords(word);
-  }
-
-  /**
-   * _isNumber - 文字列が正しい数値形式であるかを判定するメソッド
-   * 
-   * 負の数値、カンマ区切りの数値、小数点を含む数値に対応しています。
-   * 
-   * @param {string} value - 判定する文字列。
-   * @returns {boolean} 文字列が数値形式の場合は true、そうでない場合は false。
-   */
-  _isNumber(value) {
-    const textProcessor = this.getTextProcessor();
-    return textProcessor.isPhoneNumber(value) || textProcessor.isNormalNumber(value);
-  }
-
-  /**
-   * convertSplitWords - ハイフンやキャメルケースで連結された単語を含む文字列をカタカナ表記に変換するメソッド
-   * 
-   * まずハイフンを削除しキャメルケースに統一、次にキャメルケースの単語を分割し、
-   * それぞれをカタカナに変換して中黒で連結した文字列を返します。
-   * 
-   * @param {string} word - 変換対象の文字列。
-   * @returns {string} 変換後のカタカナ表記文字列。
-   */
-  convertSplitWords(word) {
-    // ハイフンを取り除き、後続の文字を大文字に変換してキャメルケースに統一
-    const sanitizedWord = word.replace(/^[,\.]|[,\.]$/g, '');
-    const halfWidthWord = this.convertToHalfWidth(sanitizedWord);
-    const unifiedCamelCase = halfWidthWord.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
-
-    // キャメルケースでの分解
-    const camelWords = this._splitCamelCase(unifiedCamelCase);
-    const kanaArray = camelWords.map(w => {
-      const lowerW = this.convertToLower(w);
-      return this.map.has(lowerW) ? this.map.get(lowerW) : this.convertReadableFormat(lowerW);
-    });
-
-    // 空要素を削除し、中黒で連結して返却
-    return kanaArray.filter(Boolean).join('・');
+    return this._convertSplitWords(word);
   }
 
   /**
@@ -175,14 +175,14 @@ class TransKana {
   }
 
   /**
-   * convertReadableFormat - ローマ字とアルファベットの変換を行うメソッド
+   * _convertReadableFormat - ローマ字とアルファベットの変換を行うメソッド
    * 
    * @function
    * @param {string} word - 変換対象の文字列
    * @returns {string} 対応するカタカナ
    * @example
    */
-  convertReadableFormat(word) {
+  _convertReadableFormat(word) {
     const romanConverted = this._convertRomanToKana(word);
     return this._convertAlphabet(romanConverted);
   }
@@ -212,7 +212,7 @@ class TransKana {
    * @example
    */
   _convertRomanToKana(original) {
-    const str = this.convertToLower(original); // 全角→半角→小文字
+    const str = this._convertToLower(original); // 全角→半角→小文字
     const tree = this.getRomanTree();
     let result = '';
     let tmp = '';
@@ -262,8 +262,8 @@ class TransKana {
    * @param {string} word - 変換する文字列。
    * @returns {string} 半角小文字に変換された文字列。
    */
-  convertToLower(word) {
-    const halfWidthWord = this.convertToHalfWidth(word)
+  _convertToLower(word) {
+    const halfWidthWord = this._convertToHalfWidth(word)
     return halfWidthWord.toLowerCase();
   }
 
@@ -275,7 +275,7 @@ class TransKana {
    * @param {string} strVal - 変換する文字列。
    * @returns {string} 全角文字が半角に変換された文字列。
    */
-  convertToHalfWidth(strVal) {
+  _convertToHalfWidth(strVal) {
     // 半角変換
     var halfVal = strVal.replace(/[！-～]/g,
       function (tmpStr) {
@@ -302,15 +302,14 @@ class TransKana {
    * @param {string} input - 変換する数値の文字列表現。
    * @returns {string} 数値を英文表記に変換した文字列。無効な入力の場合は "Invalid-number" を返します。
    */
-  convertNumToText(input) {
-
-    const textProcessor = this.getTextProcessor();
+  _convertNumToText(input) {
+    const textProcessor = this.getTextTokenizer();
   
-    if (textProcessor.isNormalNumber(input)) {
+    if (!textProcessor.isPhoneNumber(input) && textProcessor.isNumber(input)) {
       // 通常の数値変換処理...
       // 数値を浮動小数点数に変換
       let num = parseFloat(input.replace(/,/g, ''));
-  
+
       // 数値が無効な場合はエラーメッセージを返す
       if (isNaN(num)) return 'Invalid-number';
   
@@ -344,7 +343,7 @@ class TransKana {
         if (/\d/.test(char)) {
           return this._numberToWords(parseInt(char));
         } else if (char === '-' || char === ' ') {
-          return 'dash';  // ハイフンは "dash" と読む
+          return 'hyphen';
         } else {
           return char;  // その他の文字（例: 括弧やプラス記号）はそのまま保持
         }
@@ -403,40 +402,47 @@ class TransKana {
    * @returns {string} 対応するカタカナ
    * @example
    */
-  exec(input_text) {
-    const textProcessor = this.getTextProcessor();
-
-    // トークンを抽出
+  exec(input_text, {compact = false} = {}) {
+    const textProcessor = this.getTextTokenizer();
     const tokens = textProcessor.extractTokens(input_text);
-    const wordTokens = tokens.filter(token => token.type === 'word');
 
-    // 各トークンを変換
-    let kanaWords = wordTokens.map(token => this.fetchKana(token.value));
-    let result = '';
-    let wordIndex = 0;
+    // 日本語のトークン数確認用
+    const hasJapanese = tokens.some(t => t.type === 'japanese');
   
-    // トークンの種別ごとに判定し、テキストを再構築
-    for (let i = 0; i < tokens.length; i++) {
-      const token = tokens[i];
-      if (token.type === 'word') {
-        result += kanaWords[wordIndex++] || token.value;
-      } else {
-        result += token.value;
-      }
+    const parts = tokens.map(token => {
+      switch (token.type) {
+        case 'word':
+          return this.fetchKana(token.value);
   
-      // トークンの間にスペースを追加
-      if (i < tokens.length - 1) {
-        result += ' ';
+        case 'number':
+          return hasJapanese ? token.value : this.fetchKana(token.value);
+  
+        default:
+          return token.value;
       }
+    });
+  
+    // 一旦トークンを 1 スペースで連結
+    let result = parts.join(' ');
+  
+    // 句読点の前後／日本語と数字の間の不要スペースを削除
+    result = result
+      .replace(/\s+([,、.。!！?？])/g, '$1')      // 句読点の直前
+      .replace(/([,、.。!！?？])\s+/g, '$1 ')     // 句読点の直後（後続語があれば 1 空白）
+      .replace(/([\u3040-\u30FF\u4E00-\u9FAF])\s+(\d)/g, '$1$2') // 和文＋数字
+      .replace(/(\d)\s+([\u3040-\u30FF\u4E00-\u9FAF])/g, '$1$2'); // 数字＋和文
+
+    if (compact) {
+      result = result.replace(/([\u3040-\u30FF\u4E00-\u9FAF])\s+([A-Za-z\u30A0-\u30FF]+)/g, '$1$2')
+      .replace(/([A-Za-z\u30A0-\u30FF]+)\s+([\u3040-\u30FF\u4E00-\u9FAF])/g, '$1$2')
+      // カタカナ + 英字（rare）の境界
+      .replace(/([\u30A0-\u30FF]+)\s+([A-Za-z]+)/g, '$1$2')
+      .replace(/([A-Za-z]+)\s+([\u30A0-\u30FF]+)/g, '$1$2');
     }
-  
-    // 句読点の周りの余分なスペースを取り除く
-    result = result.replace(/\s+([,、.。!！?？])/g, '$1');
-    result = result.replace(/([,、.。!！?？])\s+/g, '$1 ');
   
     return result.trim();
   }
-  
+
   /**
    * getBasicmap - アルファベットと記号変換用のマッピングデータを返すメソッド
    * 
@@ -598,98 +604,185 @@ class TransKana {
   }
 
   /**
-   * getTextProcessor - TextProcessor クラスのインスタンスを生成して返すファクトリーメソッド
+   * getTextTokenizer - TextTokenizer クラスのインスタンスを生成して返すファクトリーメソッド
    * 
-   * TextProcessor クラスは、テキスト処理のためのメソッドを提供します。これには、
+   * TextTokenizer クラスは、テキスト処理のためのメソッドを提供します。これには、
    * ダブルクォーテーションで囲まれたテキストや記号の前後にスペースを挿入し、
    * 数字と文字の間にスペースを挿入してトークンを抽出する機能が含まれます。
    * 
-   * @returns {TextProcessor} TextProcessor クラスの新しいインスタンス。
+   * @returns {TextTokenizer} TextTokenizer クラスの新しいインスタンス。
    */
-  getTextProcessor() {
-    class TextProcessor {
+  getTextTokenizer() {
+    class TextTokenizer {
       constructor() {
-        this.numberAndLetterPattern = /(\d|[\uFF10-\uFF19])([a-zA-Z\uFF21-\uFF3A\uFF41-\uFF5A])|([a-zA-Z\uFF21-\uFF3A\uFF41-\uFF5A])(\d|[\uFF10-\uFF19])/g;
+        // 全角英数字を含むパターン
+        this.fullWidthAlphanumericPattern = /[\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A]/;
 
-        // アポストロフィを含む単語も1つのトークンとして認識するパターン
-        this.tokenPattern = /[0-9a-zA-Z-'"`.\=+*/%^&@#$~\uFF10-\uFF19\uFF21-\uFF3A\uFF41-\uFF5A－''．￥　～]+(?:'[a-zA-Z]+)?/g;
-        this.punctuationPattern = /[,、]/g;
+        // 日本語文字を含むパターン（全角英数字を除外）
+        this.japanesePattern = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]+/;
 
-        this.doubleQuotedTextPattern = /"([^"]*)"/g;
-        this.singleQuotedTextPattern = /'([^']*)'/g;
-        this.symbolPattern = /([=\+\*\/%\^&@#$~])/g;
-        this.phoneNumberPattern = /^\+?(\d{1,3})?(\(\d{1,3}\))?(\d{1,3}(,\d{3})*(\.\d+)?)([ -]?\d{2,4})*(\.)?$|^\d{3}-\d{4}(\.)?$/;
-        this.normalNumberPattern = /^(-)?(\d{1,3}(,\d{3})*(\.\d+)?)(\.)?$/;
+        // 数値パターン
+        this.numberPattern = /[-\+]?[\d\-\.,]+/
+
+        // 数値パターン（カンマ区切り）
+        this.commaSeparatedNumberPattern = /-?\d{1,3}(?:,\d{3})*(\.\d+)?/;
+
+        // 数値パターン（カンマなし）
+        this.normalNumberPattern = /-?\d+(?:\.\d+)?/;
+
+        // 数値パターン（電話番号ハイフン区切り）
+        this.phonePattern = /^\d{2,3}-\d{3,4}-\d{4}$/;
+
+        // 数値パターン（ハイフン区切り）
+        this.hyphenSeparatedNumberPattern = /^\d+(-\d+)*$/;
+
+        // 単語パターン（数字を含まない）
+        //this.wordPattern = /[a-zA-Z\uFF21-\uFF3A\uFF41-\uFF5A-'"`\=+*/%^&@#$~－''￥　～]+(?:'[a-zA-Z]+)?/;
+        // 改良版
+        // ① 先頭は英字（全角英字含む）1 文字以上
+        // ② その後に 'foo や -bar が 0 回以上続く
+        this.wordPattern = /[A-Za-z\uFF21-\uFF3A\uFF41-\uFF5A]+(?:['-][A-Za-z\uFF21-\uFF3A\uFF41-\uFF5A]+)*/;
+
+        // 句読点パターン
+        this.punctuationPattern = /[,、.．]/;
+
+        // クォーテーションパターン
+        this.singleQuotedPattern = /'([^']*)'/g;
+        this.doubleQuotedPattern = /"([^"]*)"/g;
+        this.symbolPattern = /([=\+\*\/%\^&@#$~_])/g;
+
+        // combinedPatternを事前に作成
+        this.combinedPattern = new RegExp(
+          `(${this.numberPattern.source})|(${this.wordPattern.source})|(${this.japanesePattern.source})|(${this.punctuationPattern.source})`,
+          'g'
+        );
+      
       }
   
-      // アポストロフィとして使用されるシングルクォートは無視
-      processQuotes(text) {
-        // アポストロフィを含む単語はそのまま保持
-        const apostrophePattern = /\b\w+(?:'[a-zA-Z]+)?\b/g;
-        text = text.replace(apostrophePattern, match => match);
-
-        // それ以外のシングルクォートは前後にスペースを挿入
-        return text.replace(/'([^']+)'/g, " '$1' ");
-      }
-
       // ダブルクォーテーションで囲まれたテキストと記号、数字が単語に囲まれている場合の前後にスペースを挿入
-      insertSpaces(text) {
-        let processed_text =this.processQuotes(text);
-
-        return processed_text
+      _insertSpaces(text) {
+        return text
+          .replace(this.singleQuotedPattern, " ' $1 ' ")  
+          .replace(this.doubleQuotedPattern, " \" $1 \" ")
+          .replace(this.symbolPattern, ' $1 ')
+          .replace(/([a-zA-Z]+)(\-)([a-zA-Z]+)/g, '$1 $3')
+          .replace(/([a-zA-Z]+)(\-)([0-9]+)/g, '$1 $3')
           .replace(/([0-9])([a-zA-Z])/g, '$1 $2')
           .replace(/([a-zA-Z])([0-9])/g, '$1 $2')
           .replace(/([a-z])([A-Z])/g, '$1 $2')
           .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
-          .replace(/([,、])([^\s])/g, '$1 $2') // 句読点の後にスペースを挿入
-          .replace(/([^\s])([,、])/g, '$1 $2') // 句読点の前にスペースを挿入
+          .replace(/([、])([^\s])/g, '$1 $2') // 句読点の後にスペースを挿入
+          .replace(/([^\s])([、])/g, '$1 $2') // 句読点の前にスペースを挿入
           .replace(/\s+/g, ' ').trim();
-        }
-
-      // トークンの置換とスペースの挿入を同時に行う
-      insertSpacesAndReplace(text, replacements) {
-        let index = 0;
-        return text
-          .replace(this.tokenPattern, (match) => {
-            const replacement = replacements[index++] || match;
-            return ` ${replacement} `;
-          })
-          .replace(this.symbolPattern, ' $1 ')
-          .replace(/\s+/g, ' ')
-          .trim();
       }
-  
-      // テキストからトークンを抽出する
-      extractTokens(text) {
-        const tokens = []; let match; let lastIndex = 0;
 
-        while ((match = this.tokenPattern.exec(text)) !== null) {
-          const betweenText = text.slice(lastIndex, match.index); const punctuations = betweenText.match(this.punctuationPattern); if (punctuations) { punctuations.forEach(p => tokens.push({ type: 'punctuation', value: p })); }
-        
-          tokens.push({ type: 'word', value: match[0] });
-          lastIndex = this.tokenPattern.lastIndex;
+      _formatNumbersInText(text) {
+        // 数値をカンマ区切りに変換
+        return text.replace(this.numberPattern, (match) => {
+          // 負の数かどうかを確認
+          const isNegative = match.startsWith('-');
+          // 絶対値を取得
+          const absValue = isNegative ? match.slice(1) : match;
+          
+          // 整数部分と小数部分を分離
+          const [integerPart, decimalPart] = absValue.split('.');
+          
+          // 整数部分にカンマを挿入
+          const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+          
+          // フォーマットされた数値を構築
+          let formattedNumber = formattedInteger;
+          if (decimalPart) {
+            formattedNumber += '.' + decimalPart;
+          }
+          if (isNegative) {
+            formattedNumber = '-' + formattedNumber;
+          }
+          
+          return formattedNumber;
+        });
+      }
+
+      extractTokens(text) {
+        const tokens = [];
+        const formattedText = this.processQuotes(this._formatNumbersInText(text));
+
+        let match;
+      
+        while ((match = this.combinedPattern.exec(formattedText)) !== null) {
+          const token = match[0].trim();
+          const type = this.getTokenType(token);
+      
+          if (type === 'number' && this.hyphenSeparatedNumberPattern.test(token)) {
+            token.split("-").forEach(num => tokens.push({ type: 'number', value: num }));
+          } else {
+            const value = type === 'number' ? this._formatNumbersInText(token) : token;
+            tokens.push({ type, value });
+          }
         }
-        
-        const endText = text.slice(lastIndex);
-        const endPunctuations = endText.match(this.punctuationPattern);
-        if (endPunctuations) {
-          endPunctuations.forEach(p => tokens.push({ type: 'punctuation', value: p }));
-        }
-        
+
         return tokens;
       }
-
-      isPhoneNumber(text) {
-        const numberRegexp = new RegExp(this.phoneNumberPattern);
-        return numberRegexp.test(text);
+      
+      getTokenType(token) {
+        if (this.punctuationPattern.test(token) && !this.isNumber(token)) {
+          return 'punctuation';
+        }
+        if (this.japanesePattern.test(token) && !this.fullWidthAlphanumericPattern.test(token)) {
+          return 'japanese';
+        }
+        if (this.numberPattern.test(token)) {
+          if (this.phonePattern.test(token)) {
+            return 'phone';
+          }
+          if (this.normalNumberPattern.test(token) || this.commaSeparatedNumberPattern.test(token)) {
+            return 'number';
+          }
+        }
+        return 'word';
       }
 
-      isNormalNumber(text) {
-        const numberRegexp = new RegExp(this.normalNumberPattern);
-        return numberRegexp.test(text);
+      isNumber(value) {
+        return this.normalNumberPattern.test(value) || this.commaSeparatedNumberPattern.test(value);
       }
+    
+      isPhoneNumber(value) {
+        return this.phonePattern.test(value);
+      }
+
+      processJapaneseText(text) {
+        const tokens = this.extractTokens(text);
+        return tokens.map(token => token.value).join(' ');
+      }
+
+      /**
+       * 引用符の正規化と前後スペースの挿入を行う
+       *
+       * 1. “ ” ‘ ’ を " ' に統一（トークン分割を安定化）
+       * 2. 'quoted' / "quoted" 形式のまとまりを検出し、
+       *    双方の外側に 1 空白ずつ挿入する
+       *
+       * @param  {string} text - 元の文字列
+       * @return {string}      - 加工後の文字列
+       */
+      processQuotes(text) {
+        // ① スマートクォート → ストレートクォート
+        const normalized = text
+          .replace(/[\u2018\u2019]/g, "'")  // ‘ ’ → '
+          .replace(/[\u201C\u201D]/g, '"'); // “ ” → "
+
+        // ② 引用符で囲まれた部分の両側にスペースを付与
+        //    singleQuotedPattern / doubleQuotedPattern は既存フィールドを利用
+        return normalized.replace(this.doubleQuotedPattern, ' "$1" ');
+      }
+
+      normalizeApostrophes(text) {
+        // ’ ‘ → '
+        return text.replace(/[\u2018\u2019]/g, "'");
+      }
+
     }
   
-    return new TextProcessor();
+    return new TextTokenizer();
   }
 }

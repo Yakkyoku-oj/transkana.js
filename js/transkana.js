@@ -4,10 +4,10 @@
  * Author: [Yakkyoku_oj3]
  * Contact: https://twitter.com/greenhill_pharm
  * Created Date: 2023-10-30
- * Modified Date: 2025-04-17
+ * Modified Date: 2025-04-24
  *
  * License: [The MIT License (MIT)]
- * Version: 1.1.0
+ * Version: 1.1.1
  * 
  * Copyright (c) 2023-2025, Yakkyoku_oj3.
  * 
@@ -97,7 +97,47 @@ class TransKana {
     const textProcessor = this.getTextTokenizer();
     return textProcessor.isNumber(value) || textProcessor.isPhoneNumber(value);
   }
+
+
+  /**
+   * _isFaceLikeSymbol - 文字列が顔文字のように記号の連続であるかどうかを判定するメソッド
+   * 
+   * @param {string} value -
+   * @returns 
+   */
+  _isFaceLikeSymbol(value) {
+    return (
+      value.length >= 2 &&
+      /^[^a-zA-Z0-9\u3040-\u30FF\u4E00-\u9FFF\s]+$/.test(value) &&
+      /[\(\)\[\]{}・]/.test(value)
+    );
+  }
   
+  /**
+   * _isMathContext - 記号の前後の文字列が数式構文であるかを判定する
+   *
+   * @param {string} prev - 記号の直前のトークン値
+   * @param {string} next - 記号の直後のトークン値
+   * @returns {boolean} true = 数式とみなす, false = 通常記号（例: スラッシュ）
+   */
+  _isMathContext(prev, next) {
+    // 数値（小数も含む）
+    const isNumeric = (s) => /^\d+(\.\d+)?$/.test(s);
+
+    // 変数（英字単語、1文字以上。小文字・大文字問わず）
+    const isVariable = (s) => /^[a-zA-Z]{1,10}$/.test(s);
+
+    // A/C のような略語回避（大文字1文字のみの英字同士）
+    if (/^[A-Z]$/.test(prev) && /^[A-Z]$/.test(next)) return false;
+
+    // 略語風の文字列（例: mc, cm, AC）で数字と組み合わさる場合 → 数式とみなす
+    if ((isVariable(prev) || isNumeric(prev)) && (isVariable(next) || isNumeric(next))) {
+      return true;
+    }
+
+    return false;
+  }
+
   /**
    * convertSplitWords - ハイフンやキャメルケースで連結された単語を含む文字列をカタカナ表記に変換するメソッド
    * 
@@ -117,47 +157,12 @@ class TransKana {
     const camelWords = this._splitCamelCase(unifiedCamelCase);
     const kanaArray = camelWords.map(w => {
       const lowerW = this._convertToLower(w);
+      if (lowerW === 'a') return 'ア';
       return this.map.has(lowerW) ? this.map.get(lowerW) : this._convertReadableFormat(lowerW);
     });
 
     // 空要素を削除し、中黒で連結して返却
     return kanaArray.filter(Boolean).join('・');
-  }
-
-  /**
-   * fetchKana - 単語をカタカナに変換するメソッド
-   * 
-   * @function
-   * @param {string} word - 変換対象の文字列
-   * @returns {string} 対応するカタカナ
-   * @example
-   * fetchKana('English');
-   */
-  fetchKana(word) {
-    // a のみ例外処理
-    if (word === 'a') return 'ア';
-    if (word === 'A') return 'エー';
-
-    // 入力テキストを小文字に変換
-    const lowerWord = this._convertToLower(word);
-  
-    // 単語が数字トークン（電話番号、カンマ区切りの数字、数字の連続）の場合
-    if (this._isNumber(lowerWord)) {
-      const numberText = this._convertNumToText(lowerWord);
-      return this._convertSplitWords(numberText);
-    }
-  
-    // 単語の前後からカンマとピリオドを取り除く
-    const sanitizedWord = lowerWord.replace(/^[,\.]+|[,\.]+$/g, '');
-    
-    // マップに単語が含まれる場合、それを返す
-    if (this.map.has(sanitizedWord)) {
-      const mapResultText = this.map.get(sanitizedWord);
-      return lowerWord.match(/\.$/) ? mapResultText + "。" : mapResultText;
-    }
-  
-    // 単語を分解して変換
-    return this._convertSplitWords(word);
   }
 
   /**
@@ -171,7 +176,7 @@ class TransKana {
    * @returns {string[]} キャメルケースの文字列を単語ごとに分割した配列。
    */
   _splitCamelCase(str) {
-    return str.replace(/([a-z0-9])([A-Z])/g, '$1 $2').split(' ');
+    return str.match(/([A-Z]+(?=[A-Z][a-z])|[A-Z][a-z]+|[a-z]+)/g) || [str];
   }
 
   /**
@@ -393,55 +398,172 @@ class TransKana {
     return words.replace(/\s+/g, ' ').trim(); // 余分な空白を1つの空白に置換し、末尾の空白を削除
   }
   
-
   /**
-   * exec - テキストをカタカナに変換するメソッド
+   * fetchKana - 単語をカタカナに変換するメソッド
    * 
    * @function
    * @param {string} word - 変換対象の文字列
    * @returns {string} 対応するカタカナ
    * @example
+   * fetchKana('English');
    */
-  exec(input_text, {compact = false} = {}) {
+  fetchKana(token, context = {}) {
+    const hasJapanese = context.hasJapanese;
+    const prev = context.prev;
+    const next = context.next;
+    const { value, type, scriptHint } = token;
+  
+    // --- 文脈的 "a" / "A" の処理 ---
+    if ((value === 'a' || value === 'A')) {
+      if (type === 'word' && scriptHint === 'latin' && /^[a-zA-Z]/.test(next)) {
+        return 'ア';  // Exp: a pen
+      }
+      if (scriptHint === 'latin' && hasJapanese) {
+        return 'エー';  // Exp: Aじゃん
+      }
+      return 'エー';  // Exp: Plan A / Type A
+    }
+
+    const halfWord = this._convertToHalfWidth(value);
+    
+    // --- 数値トークン（半角）として英語読みする場合 ---
+    if (type === 'number' && scriptHint === 'latin' && hasJapanese === false) {
+      const numberText = this._convertNumToText(halfWord);
+      return this._convertSplitWords(numberText);
+    }
+  
+    // --- 日本語文中の数値：そのまま半角数値で返す ---
+    if (type === 'number' && scriptHint !== 'latin') {
+      return halfWord;
+    }
+
+    // --- 記号トークンの場合 ---
+    if (type === 'symbol') {
+      const mathMap = this.getMathOperatorMap();
+      const generalMap = this.getGeneralSymbolMap();
+
+      if (this._isFaceLikeSymbol(value)) {
+        return value;  // 顔文字などはそのまま返す
+      }
+
+      // 優先：数学文脈 → mathMap、それ以外 → generalMap
+      if (this._isMathContext(prev, next) && mathMap[value]) {
+        return mathMap[value];
+      }
+
+      return generalMap[value] || value;
+    }
+  
+    // --- 通常の辞書判定（カンマ・ピリオド除去後） ---
+    const lowerWord = this._convertToLower(halfWord);
+    const sanitizedWord = lowerWord.replace(/^[,\.]+|[,\.]+$/g, '');
+  
+    if (this.map.has(sanitizedWord)) {
+      const result = this.map.get(sanitizedWord);
+      return lowerWord.match(/\.$/) ? result + "。" : result;
+    }
+  
+    // --- Fallback：数字文字列の読み上げチェック ---
+    if (this._isNumber(lowerWord) && hasJapanese === false) {
+      const numberText = this._convertNumToText(lowerWord);
+      return this._convertSplitWords(numberText);
+    }
+
+    if (type === 'symbol') {
+      const symbolKanaMap = this.getMathOperatorMap();
+      if (this._isFaceLikeSymbol(value)) return value;
+      return symbolKanaMap[value] || value;
+    }
+  
+    // --- Fallback：辞書にも数値でもない → 分解して音変換 ---
+    return this._convertSplitWords(value);
+  }
+
+  /**
+   * exec - 入力された文章をトークンに分割し、各トークンをカタカナ変換する。
+   * 主に TTS（テキスト読み上げ）用として、英語をカタカナ化し、日本語と混在する文脈にも対応。
+   *
+   * @function
+   * @param {string} input_text - 処理対象の入力文字列
+   * @param {boolean} [compact=false] - 出力をコンパクト（不要なスペース除去）にするかどうか
+   * @returns {string} カタカナ変換後の文字列
+   * 
+   * @example
+   * exec("It's a beautiful day.") // => "イッツ ア ビューティフル デイ."
+   */
+  exec(input_text, compact = false) {
+    // トークナイザーインスタンスの取得とトークン化の実行
     const textProcessor = this.getTextTokenizer();
     const tokens = textProcessor.extractTokens(input_text);
-
-    // 日本語のトークン数確認用
-    const hasJapanese = tokens.some(t => t.type === 'japanese');
   
-    const parts = tokens.map(token => {
+    const mergedTokens = [];
+    for (let i = 0; i < tokens.length; i++) {
+      const current = tokens[i];
+
+      // 顔文字や記号群などの「連続symbolトークン」を1トークンにまとめる
+      if (current.type === 'symbol') {
+        let combinedValue = current.value;
+        let j = i + 1;
+    
+        while (j < tokens.length && tokens[j].type === 'symbol') {
+          combinedValue += tokens[j].value;
+          j++;
+        }
+    
+        mergedTokens.push({
+          ...current,
+          value: combinedValue
+        });
+        i = j - 1; // 次のsymbol群はスキップ
+      } else {
+        mergedTokens.push(current);
+      }
+    }
+
+    // 日本語が1つでも含まれていれば true（文脈判断に利用）
+    const hasJapanese = mergedTokens.some(t => t.type === 'japanese');
+
+    // 各トークンをカタカナへ変換（前後情報付きで fetchKana に渡す）
+    const parts = mergedTokens.map((token, idx) => {
+      const prev = mergedTokens[idx - 1]?.value || '';
+      const next = mergedTokens[idx + 1]?.value || '';
+
       switch (token.type) {
         case 'word':
-          return this.fetchKana(token.value);
-  
         case 'number':
-          return hasJapanese ? token.value : this.fetchKana(token.value);
-  
+        case 'phone':
+        case 'symbol':
+          return this.fetchKana(token, { compact, hasJapanese, prev, next });
+
+        // 日本語や句読点、その他はそのまま出力
         default:
           return token.value;
       }
     });
-  
-    // 一旦トークンを 1 スペースで連結
+
+    // 各要素をスペースで結合
     let result = parts.join(' ');
-  
-    // 句読点の前後／日本語と数字の間の不要スペースを削除
+
+    // 句読点の前後、日本語と数字の間の不要スペースを削除
     result = result
       .replace(/\s+([,、.。!！?？])/g, '$1')      // 句読点の直前
-      .replace(/([,、.。!！?？])\s+/g, '$1 ')     // 句読点の直後（後続語があれば 1 空白）
+      .replace(/([,、.。!！?？])\s+/g, '$1 ')     // 句読点の直後（1スペース維持）
       .replace(/([\u3040-\u30FF\u4E00-\u9FAF])\s+(\d)/g, '$1$2') // 和文＋数字
       .replace(/(\d)\s+([\u3040-\u30FF\u4E00-\u9FAF])/g, '$1$2'); // 数字＋和文
 
+    // コンパクトモード：不要スペース除去（カタカナと英字の接続など）
     if (compact) {
-      result = result.replace(/([\u3040-\u30FF\u4E00-\u9FAF])\s+([A-Za-z\u30A0-\u30FF]+)/g, '$1$2')
-      .replace(/([A-Za-z\u30A0-\u30FF]+)\s+([\u3040-\u30FF\u4E00-\u9FAF])/g, '$1$2')
-      // カタカナ + 英字（rare）の境界
-      .replace(/([\u30A0-\u30FF]+)\s+([A-Za-z]+)/g, '$1$2')
-      .replace(/([A-Za-z]+)\s+([\u30A0-\u30FF]+)/g, '$1$2');
+      result = result
+        .replace(/([\u3040-\u30FF\u4E00-\u9FAF])\s+([A-Za-z\u30A0-\u30FF]+)/g, '$1$2')
+        .replace(/([A-Za-z\u30A0-\u30FF]+)\s+([\u3040-\u30FF\u4E00-\u9FAF])/g, '$1$2')
+        .replace(/([\u30A0-\u30FF]+)\s+([A-Za-z]+)/g, '$1$2')
+        .replace(/([A-Za-z]+)\s+([\u30A0-\u30FF]+)/g, '$1$2');
     }
-  
+
     return result.trim();
   }
+
+  
 
   /**
    * getBasicmap - アルファベットと記号変換用のマッピングデータを返すメソッド
@@ -602,6 +724,55 @@ class TransKana {
       },
     };
   }
+  getMathOperatorMap() {
+    return {
+      '+': 'プラス',
+      '-': 'マイナス',
+      '*': 'タイムズ',
+      '/': 'ディバイディッド バイ',
+      '=': 'イコール',
+      '%': 'モジュロ',
+      '^': 'トゥー ザ パワー オブ',
+      '<': 'レス ザン',
+      '>': 'グレーター ザン',
+      '<=': 'レス ザン オア イコール',
+      '>=': 'グレーター ザン オア イコール',
+      '!=': 'ノット イコール',
+      '==': 'ダブル イコール',
+      '===': 'トリプル イコール',
+      '!==': 'ノット トリプル イコール',
+      '&&': 'アンド',
+      '||': 'オア',
+      '!': 'ノット',
+      '~': 'チルダ',
+      '<<': 'レフト シフト',
+      '>>': 'ライト シフト',
+      '&': 'ビット アンド',
+      '|': 'ビット オア'
+    };
+  };
+
+  getGeneralSymbolMap() {
+    return {
+      '*': 'アスタリスク',
+      '/': 'スラッシュ',
+      '+': 'プラス',
+      '-': 'ハイフン',
+      '=': 'イコール',
+      '%': 'パーセント',
+      '^': 'キャレット',
+      '<': 'レス ザン',
+      '>': 'グレーター ザン',
+      '&': 'アンド',
+      '|': 'バーティカルバー',
+      '~': 'チルダ',
+      '#': 'シャープ',
+      '@': 'アットマーク',
+      '\\': 'バックスラッシュ',
+      ':': 'コロン',
+      ';': 'セミコロン'
+    };
+  }
 
   /**
    * getTextTokenizer - TextTokenizer クラスのインスタンスを生成して返すファクトリーメソッド
@@ -621,40 +792,52 @@ class TransKana {
         // 日本語文字を含むパターン（全角英数字を除外）
         this.japanesePattern = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]+/;
 
-        // 数値パターン
-        this.numberPattern = /[-\+]?[\d\-\.,]+/
+        // 数値パターン（全角数字＋全角ピリオド・カンマも含む）
+        this.numberPattern = /[-+]?[\d\uFF10-\uFF19\-.,\uFF0E\uFF0C]+/;
 
         // 数値パターン（カンマ区切り）
-        this.commaSeparatedNumberPattern = /-?\d{1,3}(?:,\d{3})*(\.\d+)?/;
+        this.commaSeparatedNumberPattern = /^[\d\uFF10-\uFF19]{1,3}(?:[,\uFF0C][\d\uFF10-\uFF19]{3})*(?:[.\uFF0E][\d\uFF10-\uFF19]+)?$/;
 
         // 数値パターン（カンマなし）
-        this.normalNumberPattern = /-?\d+(?:\.\d+)?/;
+        this.normalNumberPattern = /^[-+]?\d+(?:\.\d+)?$/;
 
         // 数値パターン（電話番号ハイフン区切り）
         this.phonePattern = /^\d{2,3}-\d{3,4}-\d{4}$/;
 
         // 数値パターン（ハイフン区切り）
-        this.hyphenSeparatedNumberPattern = /^\d+(-\d+)*$/;
+        this.hyphenSeparatedNumberPattern = /^[\d\uFF10-\uFF19]+(-[\d\uFF10-\uFF19]+)*$/;
 
         // 単語パターン（数字を含まない）
-        //this.wordPattern = /[a-zA-Z\uFF21-\uFF3A\uFF41-\uFF5A-'"`\=+*/%^&@#$~－''￥　～]+(?:'[a-zA-Z]+)?/;
-        // 改良版
-        // ① 先頭は英字（全角英字含む）1 文字以上
-        // ② その後に 'foo や -bar が 0 回以上続く
         this.wordPattern = /[A-Za-z\uFF21-\uFF3A\uFF41-\uFF5A]+(?:['-][A-Za-z\uFF21-\uFF3A\uFF41-\uFF5A]+)*/;
 
         // 句読点パターン
-        this.punctuationPattern = /[,、.．]/;
+        this.punctuationPattern = /^[,、.．]$/;
 
         // クォーテーションパターン
         this.singleQuotedPattern = /'([^']*)'/g;
         this.doubleQuotedPattern = /"([^"]*)"/g;
-        this.symbolPattern = /([=\+\*\/%\^&@#$~_])/g;
 
-        // combinedPatternを事前に作成
+        // 記号と読み上げ対象外の文字パターン
+        this.symbolPattern = new RegExp(
+          `[=+\\-*\\/\\%^&|~@#$<>\\[\\]{}()（）「」『』【】・…！？!?。、、・：；・ー゛゜～` +
+          `\u0370-\u03FF` + // Greek
+          `\u0400-\u04FF` + // Cyrillic
+          `\u0600-\u06FF` + // Arabic
+          `\u0900-\u097F` + // Devanagari
+          `\u1F000-\u1FAFF` + // Misc emoji (optional)
+          `\u2200-\u22FF` + // 数学記号
+          `\u2300-\u23FF` + // Misc Technical
+          `\u2600-\u26FF` + // Misc Symbols
+          `\u2100-\u214F` + // Letterlike
+          `\u2500-\u259F` + // Box Drawing + Block Elements
+          `\uFF00-\uFFEF` + // Fullwidth
+          `]`
+        );
+
+        // トークン分割用パターン
         this.combinedPattern = new RegExp(
-          `(${this.numberPattern.source})|(${this.wordPattern.source})|(${this.japanesePattern.source})|(${this.punctuationPattern.source})`,
-          'g'
+          `(${this.numberPattern.source})|(${this.wordPattern.source})|(${this.japanesePattern.source})|(${this.punctuationPattern.source})|(${this.symbolPattern.source})`,
+            'g'
         );
       
       }
@@ -703,43 +886,64 @@ class TransKana {
         });
       }
 
+      // トークン分割処理
       extractTokens(text) {
         const tokens = [];
         const formattedText = this.processQuotes(this._formatNumbersInText(text));
-
+        
         let match;
-      
+
         while ((match = this.combinedPattern.exec(formattedText)) !== null) {
-          const token = match[0].trim();
-          const type = this.getTokenType(token);
-      
-          if (type === 'number' && this.hyphenSeparatedNumberPattern.test(token)) {
-            token.split("-").forEach(num => tokens.push({ type: 'number', value: num }));
-          } else {
-            const value = type === 'number' ? this._formatNumbersInText(token) : token;
-            tokens.push({ type, value });
+          const tokenText = match[0].trim();
+          const type = this.getTokenType(tokenText);
+          const scriptHint = this.detectScriptType(tokenText);
+          
+          const values = (type === 'number' && this.hyphenSeparatedNumberPattern.test(tokenText))
+            ? tokenText.split("-")
+            : [type === 'number' ? this._formatNumbersInText(tokenText) : tokenText];
+
+          for (const value of values) {
+            tokens.push({ type, value, scriptHint });
           }
         }
-
+        
         return tokens;
       }
-      
+
+      // トークン種別判定（getTokenType）
       getTokenType(token) {
-        if (this.punctuationPattern.test(token) && !this.isNumber(token)) {
-          return 'punctuation';
-        }
-        if (this.japanesePattern.test(token) && !this.fullWidthAlphanumericPattern.test(token)) {
-          return 'japanese';
-        }
+        const isNum = this.isNumber(token);
+        const scriptType = this.detectScriptType(token);
+
+        if (this.punctuationPattern.test(token) && !isNum) return 'punctuation';
+        if (this.japanesePattern.test(token) && !this.fullWidthAlphanumericPattern.test(token)) return 'japanese';
+
+        if (this.wordPattern.test(token)) return 'word';
+
         if (this.numberPattern.test(token)) {
-          if (this.phonePattern.test(token)) {
-            return 'phone';
-          }
-          if (this.normalNumberPattern.test(token) || this.commaSeparatedNumberPattern.test(token)) {
-            return 'number';
-          }
+          if (this.phonePattern.test(token)) return 'phone';
+          if (this.normalNumberPattern.test(token) || this.commaSeparatedNumberPattern.test(token)) return 'number';
         }
+
+        if (this.symbolPattern.test(token) || scriptType === 'unknown') return 'symbol';
+
+        if (/^[\u0400-\u04FF]+$/.test(token)) return 'foreign-word';
+
         return 'word';
+      }
+
+      // 文字スクリプト種別判定（detectScriptType）
+      detectScriptType(text) {
+        if (/^[\u0400-\u04FF]+$/.test(text)) return 'cyrillic';
+        if (/^[\u0370-\u03FF]+$/.test(text)) return 'greek';
+        if (/^[\u0600-\u06FF]+$/.test(text)) return 'arabic';
+        if (/^[\u0900-\u097F]+$/.test(text)) return 'devanagari';
+        if (/^[\u3040-\u309F]+$/.test(text)) return 'hiragana';
+        if (/^[\u30A0-\u30FFー]+$/.test(text)) return 'katakana';
+        if (/^[\u4E00-\u9FFF]+$/.test(text)) return 'kanji';
+        if (/^[A-Za-z0-9.,%+\-]+$/.test(text)) return 'latin';
+        if (/^[\uFF10-\uFF19]+$/.test(text)) return 'full-width-number';
+        return 'unknown';
       }
 
       isNumber(value) {

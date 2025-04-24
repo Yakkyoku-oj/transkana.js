@@ -194,6 +194,39 @@ body {
   outline: 0;
 }
 
+/* UIコントロールセクション内の。[input type=button, #compact] */
+#working_document [type="button"]#button_compact {
+  font-family: 'Montserrat', Arial, Helvetica, sans-serif;
+  width: 350px;
+  background: #CC6666;
+  border-radius: 5px;
+  border: 0;
+  cursor: pointer;
+  color: white;
+  font-size: 18px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  transition: all 0.3s;
+  margin-top: -4px;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+
+#working_document [type="button"]#button_compact:hover {
+  background: #ca9e3e;
+}
+
+#working_document [type="button"]#button_compact.active {
+  color: white;
+  background: #66c5cc;
+}
+
+#working_document [type="button"]#button_compact.disactive {
+  color: #999999;
+  background: #CC6666;
+}
+
+
 /* UIコントロールセクション内の、[textarea] */
 #working_document textarea.feedback-input {
   color: white;

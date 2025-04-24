@@ -4,10 +4,10 @@
  * Author: [Yakkyoku_oj3]
  * Contact: https://twitter.com/greenhill_pharm
  * Created Date: 2023-10-30
- * Modified Date: 2023-10-30
+ * Modified Date: 2025-04-24
  *
   * License: [The MIT License (MIT)]
- * Version: 1.0.0
+ * Version: 1.1.0
  * 
  * Copyright (c) 2023, Yakkyoku_oj3.
  */
@@ -25,6 +25,7 @@
         {
           this.controls = new Oj3Controls(working_document, this);
           this.controls.control_methods = {
+            cl_compact_btn: (app) => { return () => app.switch_compact(app); },
             cl_convert_btn: (app) => { return () => app.convert(app); },
 
             /**
@@ -70,7 +71,17 @@
           this.controls.update_ui_dataset = {
             init_ui: [
               { target: 'button_convert', add_class: 'active', remove_class: 'disactive' },
+              { target: 'button_compact', add_class: 'disactive', remove_class: 'active' },
             ],
+            // コンパクトモードボタンをクリックし、オンになった場合に適用
+            cl_compact_btn_switch_to_on: [
+              { target: 'button_compact', add_class: 'active', remove_class: 'disactive' }
+            ],
+            // コンパクトモードボタンをクリックし、オフになった場合に適用
+            cl_compact_btn_switch_to_off: [
+              { target: 'button_compact', add_class: 'disactive', remove_class: 'active' }
+            ],
+            
             // Show Discriptionsボタンをクリックした際に適用 this.control_medhod['cl_show_discription_btn']
             cl_show_discription_btn: [
               { target: 'show_disclaimer', add_class: 'active', remove_class: 'disactive' },
@@ -138,6 +149,9 @@
               { parent: 'ui', element: 'div', states: { id: 'title_input_text' } },
               { parent: 'ui', element: 'div', states: { id: 'subject_input' } },
               { parent: 'ui', element: 'textarea',states: { id: 'inputarea', class: 'feedback-input', placeholder: 'Please enter english text...'} },
+              { parent: 'ui', element: 'input', value: 'コンパクトモード：☐オフ', states: { id: 'button_compact', type: 'button', class: 'disactive' } },
+              { parent: 'ui', element: 'p', text: '入力に日本語が含まれる場合に、英単語と日本語の間に挿入されるスペースを削除したい場合はコンパクトモードを「オン」にしてください。', states: {class:'subject', style: 'margin-bottom: 12px; font-size:18px;'}},
+              { parent: 'ui', element: 'div', text: ' '},
               { parent: 'ui', element: 'input', value: 'カタカナに変換する', states: { id: 'button_convert', type: 'button', class: 'disactive' } },
               { parent: 'ui', element: 'div', states: { id: 'subject_output' } },
               { parent: 'ui', element: 'textarea',states: { id: 'outputarea', class: 'feedback-input', placeholder: 'Output', readonly: 'readonly' } },
@@ -152,6 +166,7 @@
                 control: [ { listen : 'イベントハンドラ', require: 'メソッド名' }, { ... } ]
               }
               */
+              { id: 'button_compact', control: [{ listen: 'click', require: 'cl_compact_btn' }] },
               { id: 'button_convert', control: [{ listen: 'click', require: 'cl_convert_btn' }] },
               { id: 'show_discription', control: [{ listen: 'click', require: 'cl_show_discription_btn' }] },
               { id: 'show_disclaimer', control: [{ listen: 'click', require: 'cl_show_disclaimer_btn' }] },
@@ -179,7 +194,8 @@
               { parent: 'histories', element: 'li', text: '[2023/10/30] Added 149875 word resource.', states: { class: 'subject' } },
               { parent: 'histories', element: 'li', text: '[2023/11/03] Added 5070 word resource.', states: { class: 'subject' } },
               { parent: 'histories', element: 'li', text: '[2024/04/02] Modification of source code and addition of corresponding English sentence patterns (symbols, sentences surrounded by " ", numbers)', states: { class: 'subject' } },
-              { parent: 'histories', element: 'li', text: '[2025/04/17] Fixed tokenization of English contractions & hyphen‑compounds, normalized smart quotes, eliminated superfluous spaces in mixed‑language output, and added compact mode for TTS‑friendly spacing.', states: { class: 'subject' } },
+              { parent: 'histories', element: 'li', text: '[2025/04/17] Version 1.1.0: Fixed tokenization of English contractions & hyphen‑compounds, normalized smart quotes, eliminated superfluous spaces in mixed‑language output, and added compact mode for TTS‑friendly spacing.', states: { class: 'subject' } },
+              { parent: 'histories', element: 'li', text: '[2025/04/23] Version 1.1.1: Fixed comma-separated number classification, improved a/A handling, refined camelCase splitting and output spacing.', states: { class: 'subject' } },
 
               // スペシャルサンクス
               { parent: 'thanks', element: 'li', text: '[sql.js] : ', states: { id: 'thanks_line_0', class: 'subject' } },
@@ -240,8 +256,21 @@
           const $output = form_app.controls.get_element('outputarea');
 
           if ($input.value === '') {return;}
-
-          $output.value = yomi.exec($input.value);
+          $output.value = yomi.exec($input.value, compact_mode);
+        }
+        switch_compact(app)
+        {
+          const $button = form_app.controls.get_element('button_compact');
+          
+          if (compact_mode) {
+            compact_mode = false;
+            $button.value = 'コンパクトモード：☐オフ';
+            app.controls.update_ui('cl_compact_btn_switch_to_off');
+          } else {
+            compact_mode = true;
+            $button.value = 'コンパクトモード：☑オン';
+            app.controls.update_ui('cl_compact_btn_switch_to_on');
+          }
         }
 
         // 現在時刻を取得するメソッド
@@ -275,3 +304,4 @@
 })();
 
 const yomi = new TransKana();
+let compact_mode = false;
